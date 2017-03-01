@@ -18,7 +18,7 @@ public final class mariio
 public static void main(String[] args)
 {
         //final String argsString = "-vis on -ld 25 -ag ch.idsia.agents.controllers.ScaredShooty";
-final String argsString = "-vis on -ld 0 -ag fang.NeuralNetwork.FangMLPAgent";
+final String argsString = "-vis on -ld 0 -ag ch.idsia.agents.controllers.FangAgent";
         final CmdLineOptions cmdLineOptions = new CmdLineOptions(argsString);
 //        final Environment environment = new MarioEnvironment();
  //       final Agent agent = new ForwardJumpingAgent();

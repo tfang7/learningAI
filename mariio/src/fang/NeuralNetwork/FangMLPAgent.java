@@ -34,12 +34,17 @@ public class FangMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable 
     protected int getKillsByFire;
     protected int getKillsByStomp;
     protected int getKillsByShell;
-    public int[] direction;
-    public int fireCounter = 0;
+    public int[] direction = new int[2];
+    private int[] marioCenter;
+    int trueJumpCounter = 0;
+    int fireCounter = 0;
+    int blockedCounter = 0;
+    int timer = 0; 
  //   byte[][] scene = levelScene;
     
-    private int numInputs = 10;
-    private int numHidden = 50;
+    private int numInputs = 7;
+    private int numHidden = 75;
+    boolean isStuck = false;
     public FangMLP neuralNet;
     MarioEnvironment env;
     public FangMLPAgent(){
@@ -48,6 +53,8 @@ public class FangMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable 
     	neuralNet = new FangMLP(numInputs, numHidden, Environment.numberOfButtons);
     	//neuralNet.evalLayer(layer);
         env = MarioEnvironment.getInstance();
+        this.marioCenter = env.getMarioReceptiveFieldCenter();
+
        // integrateObservation(env);
     	getAction();
         reset();
@@ -58,6 +65,8 @@ public class FangMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable 
     	super("FangNN");
         this.neuralNet = mlp;
         env = MarioEnvironment.getInstance();
+        this.marioCenter = env.getMarioReceptiveFieldCenter();
+
         //integrateObservation(env);
     }
     public double nearestEnemy(){
@@ -79,14 +88,110 @@ public class FangMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable 
         		eType = enPos[i];
         		eX = enPos[i+1];
         		eY = enPos[i+2];
-        		return calcManhattanDist(x,y,eX,eY);
+        		double dist = calcManhattanDist(x,y,eX,eY);
+        		if (dist > 16){
+        			direction[0] = 1;
+        		}
+        		return dist;
         	}
         }
+         else{
+         	if (checkWall() > 5){
+        		blockedCounter++;
+        		if (blockedCounter > 10 && !isStuck){
+        			isStuck = true;
+        			timer = 20;
+        		}
+        	}
+        	if (isStuck){
+        		direction[0] = -1;
+        		if (timer <= 0){
+        			isStuck = false;
+        			blockedCounter = 0;
+        		}
+        		timer --;
+        	}
+         }
         return 0.0d;
     }
-    private void jumpCheck ()
-    {
+   /* private boolean checkStuck(int walls, int enemies){
+    	if (enemies > 0){
+    		
+    	}
+    	else {
+        	if (walls > 5){
+        		blockedCounter++;
+        		if (blockedCounter > 10 && !isStuck){
+        			isStuck = true;
+        			timer = 20;
+        		}
+        	}
+        	if (isStuck){
+        		direction[0] = -1;
+        		if (timer <= 0){
+        			isStuck = false;
+        			blockedCounter = 0;
+        		}
+        		timer --;
+        	}
+        	return isStuck;
+    	}
 
+    }*/
+    private boolean gapCheck(byte[][] levelScene)
+    {
+    	marioCenter = MarioEnvironment.getInstance().getMarioReceptiveFieldCenter();
+        int fromX = receptiveFieldWidth / 2;
+        int fromY = receptiveFieldHeight / 2;
+
+        if (fromX > 3)
+        {
+            fromX -= 2;
+        }
+
+        for (int x = fromX; x < receptiveFieldWidth; ++x)
+        {
+            boolean f = true;
+            for (int y = fromY; y < receptiveFieldHeight; ++y)
+            {
+                if (getReceptiveFieldCellValue(y, x) != 0)
+                    f = false;
+                
+            }
+            if (f ||
+                    getReceptiveFieldCellValue(marioCenter[0] + 1, marioCenter[1]) == 0 ||
+                    (marioState[1] > 0 &&
+                            (getReceptiveFieldCellValue(marioCenter[0] + 1, marioCenter[1] - 1) != 0 ||
+                                    getReceptiveFieldCellValue(marioCenter[0] + 1, marioCenter[1]) != 0)))
+                return true;
+        }
+        return false;
+    }
+    private boolean jumpCheck ()
+    {
+    	boolean jump = false;
+    	marioCenter = env.getMarioReceptiveFieldCenter();
+        if (
+                gapCheck(levelScene))
+        {
+            if (isMarioAbleToJump || (!isMarioOnGround && action[Mario.KEY_JUMP]))
+            {
+                jump = true;
+            }
+            ++trueJumpCounter;
+        }
+        else
+        {
+            jump = false;
+            trueJumpCounter = 0;
+        }
+
+        if (trueJumpCounter > 12)
+        {
+        	trueJumpCounter = 0;
+            jump = false;
+        }
+        return jump;
     }
     public double calcManhattanDist(float x1, float y1, float x2,  float y2) 
     {
@@ -126,11 +231,16 @@ public class FangMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable 
 		for (int i = 0; i < numInputs;i++){
 			inputs[i] = neuralNet.random();
 		}
+		int numWalls = checkWall();
+		float[] numEnemies = env.getEnemiesFloatPos();
 		inputs[0] = isMarioAbleToJump ? 1 : 0;
 		inputs[1] = isMarioOnGround ? 1 : 0;
 		inputs[2] = isMarioAbleToShoot ? 1 : 0;
-		inputs[3] = nearestEnemy() > 10 ? 1 : 0;
-		inputs[4] = checkWall() > 0 ? 1 : 0;
+		inputs[3] = nearestEnemy() > 16 ? 1 : 0;
+		inputs[4] = numWalls > 0 ? 1 : 0;
+		inputs[5] = jumpCheck() == true ? 1 : 0;
+		inputs[6] = direction[0] == 1 ? 1 : 0;
+		//inputs[6] = checkStuck(numWalls, numEnemies.length) == true ? 1 : 0;
 		//inputs[5] = Mario.coins;
 		//inputs[6] = marioStatus;
 		//inputs[5] = fireCounter > 0 ? 1 : 0;
@@ -144,6 +254,11 @@ public class FangMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable 
         for (int i = 0; i < action.length; i++)
         {
             action[i] = out[i] > 0;
+            
+            if (i == Mario.KEY_RIGHT){
+            	action[i] =(out[i] > 0) || (direction[0] == 1 ? true : false);
+            	
+            }
   //          res += action[i] + " ";
         }
       //  action[Mario.KEY_RIGHT] = out[Mario.KEY_RIGHT] > 0.2 ? true : false;
@@ -168,9 +283,9 @@ public class FangMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable 
     	
     	
     }
+
     private int checkWall(){
     	//check height loop ( for walls);
-
         int[] marioCenter = env.getMarioReceptiveFieldCenter();
         int fromX = marioCenter[0];
         int fromY = marioCenter[1];

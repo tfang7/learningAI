@@ -30,7 +30,7 @@ public class EvolveSingle
 //        RegisterableAgent.registerAgent ((Agent) initial);
         options.setFPS(GlobalOptions.MaxFPS);
         options.setLevelDifficulty(0);
-        options.setVisualization(false);
+        options.setVisualization(true);
         ProgressTask task = new ProgressTask(options);
       // options.setLevelRandSeed(1);
          options.setLevelRandSeed((int) (Math.random() * 10));

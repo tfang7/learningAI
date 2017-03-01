@@ -42,12 +42,15 @@ public class FangES implements EA {
 
 		if (bestAgent.fitness > best){
 			BestAgentSoFar = bestAgent.copy();
+			
 		}
+		System.out.println("best in generation" + fitness[0]);
 		return new Evolvable[]{population[0]};
 	}
 	public Evolvable[] getPopulation(){
 		return population;
 	}
+	//Sets the pool of elites to breed out of when generating a population
 	public Evolvable[] eliteSelection(int amount){
 		amount+=1;
 		Evolvable[] elites = new Evolvable[elite];
@@ -76,36 +79,35 @@ public class FangES implements EA {
 		 sortPopulationByFitness();
 		 FangMLPAgent bestAgent = (FangMLPAgent) population[0];
 		 Random r = new Random();
-		 
+		 boolean tuneDeviate = false;
 		 Evolvable[] eliteArray = eliteSelection(10);
-		 //Randomly pick out of 10 elites
+		 //Randomly pick out of 10 elites from elite pool
 		 FangMLPAgent nextBest = (FangMLPAgent) eliteArray[r.nextInt(eliteArray.length-1)];
-
-		// int eliteThreshold = population.length/5;
-		//for (int i = 0; i < eliteThreshold ; i++){
-	//		 evaluate(i);
-		//	System.out.println("Recombining Top " + population.length/10 + " : " + i);
-		//}
-		//sortPopulationByFitness();
-	//	 FangMLP nextBest =  population[1];
-	//	 FangMLP worst = population[population.length-1];
-		for (int j = 0; j < population.length;  j++)
-		{
-			//System.out.println("Evaluating child: " + j);
-				 //population[0].mutate();
 			if (bestCounter > 5)
 			{
-				population[j].tuneMutation(0.0001);
-				population[j].tuneDeviation(0.00001);
+				tuneDeviate = true;
+				//population[j].tuneMutation(0.0001);
+				//population[j].tuneDeviation(0.00001);
 			}
 			else if (bestCounter <= 5)
 			{
-				population[j].tuneMutation(-0.1);
-				population[j].tuneDeviation(-0.00001);
+				tuneDeviate = false;
+				//population[j].tuneMutation(-0.1);
+				//population[j].tuneDeviation(-0.00001);
 
 			}
 			
-			if (j < 50){
+		 for (int j = 0; j < population.length;  j++)
+		{
+			//keep track of generations since last global optimal
+			if (tuneDeviate) {
+				population[j].tuneDeviation(0.00001);
+				bestCounter = 0;
+				tuneDeviate = false;
+			 }
+			//breed the first 25
+			//by selecting the best agent so far and a random agent from the pool of elites
+			if (j < 25){
 				 r = new Random();
 				 nextBest = (FangMLPAgent) eliteArray[r.nextInt(eliteArray.length-1)];
 				 population[j].recombine(bestAgent.neuralNet, nextBest.neuralNet);
